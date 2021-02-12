@@ -1,0 +1,19 @@
+#!bin/bb
+
+(def deps
+  '{:deps {lambdaisland/open-source {:git/url "https://github.com/lambdaisland/open-source"
+                                     :sha "bdeb15d185e4f82ef9a07676076b23be11c0e0a1"}}})
+
+(require '[babashka.deps :as deps])
+(deps/add-deps deps)
+(require '[lioss.main :as lioss])
+
+(lioss/main
+ {:license        :mpl
+  :inception-year 2021
+  :description    "Use Metabase as a dashboard engine"})
+
+
+;; Local Variables:
+;; mode:clojure
+;; End:
