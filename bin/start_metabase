@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+EMBEDKIT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
+
+METABASE__VERSION="0.37.9"
+METABASE__JAR="${EMBEDKIT_DIR}/.store/metabase-${METABASE__VERSION}.jar"
+METABASE__JAR_URL="https://downloads.metabase.com/v${METABASE__VERSION}/metabase.jar"
+
+if [[ ! -f "${METABASE__JAR}" ]] ; then
+    echo "Downloading ${METABASE__JAR}"
+    mkdir -p $(dirname "${METABASE__JAR}")
+    curl --progress-bar -o "${METABASE__JAR}" "${METABASE__JAR_URL}"
+fi
+
+cd $(dirname "${METABASE__JAR}")
+set -x
+exec java -jar "${METABASE__JAR}"
