@@ -3,7 +3,9 @@
  :deps
  {org.clojure/clojure   {:mvn/version "1.10.2"}
   hato/hato             {:mvn/version "0.8.0"}
-  org.clojure/data.json {:mvn/version "1.0.0"}}
+  org.clojure/data.json {:mvn/version "1.0.0"}
+  io.replikativ/hasch   {:mvn/version "0.3.7"}
+  honeysql/honeysql     {:mvn/version "1.0.444"}}
 
  :aliases
  {:dev
