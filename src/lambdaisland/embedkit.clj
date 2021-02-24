@@ -47,15 +47,21 @@
       (and (hato-mw/unexceptional-status? status)
            (or (nil? coerce) (= coerce :unexceptional)))
       (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body (json/read r :key-fn keyword)))
+        (assoc resp :body (json/read r
+                                     :key-fn keyword
+                                     :eof-error? false)))
 
       (= coerce :always)
       (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body (json/read r :key-fn keyword)))
+        (assoc resp :body (json/read r
+                                     :key-fn keyword
+                                     :eof-error? false)))
 
       (and (not (hato-mw/unexceptional-status? status)) (= coerce :exceptional))
       (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body  (json/read r :key-fn keyword)))
+        (assoc resp :body  (json/read r
+                                      :key-fn keyword
+                                      :eof-error? false)))
 
       :else (assoc resp :body (slurp body :encoding charset)))))
 
@@ -103,22 +109,120 @@
                       :token token
                       :cache (atom {})})))
 
-(defn mb-get [conn path & [opts]] (http/request (request conn :get path opts)))
-(defn mb-post [conn path & [opts]] (http/request (request conn :post path opts)))
-(defn mb-put [conn path & [opts]] (http/request (request conn :put path opts)))
-(defn mb-delete [conn path & [opts]] (http/request (request conn :delete path opts)))
+(defn do-request [req]
+  (vary-meta (http/request req)
+             assoc
+             ::request req))
 
+(defn mb-get [conn path & [opts]]
+  (do-request (request conn :get path opts)))
 
-(defn find-database [client name]
-  (some #(when (= name (:name %)) %) (:body (mb-get client [:database]))))
+(defn mb-post [conn path & [opts]]
+  (do-request (request conn :post path opts)))
 
-(defn format-sql [sql]
+(defn mb-put [conn path & [opts]]
+  (do-request (request conn :put path opts)))
+
+(defn mb-delete [conn path & [opts]]
+  (do-request (request conn :delete path opts)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Helpers
+
+(defn- format-sql [sql]
   (first (honey/format sql :parameterizer :none)))
 
-(defn native-query [{:keys [database sql display variables]
-                     :or {display "table"}
-                     :as opts}]
-  {:name (:name opts)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Database operations
+
+(defn find-database [client db-name]
+  (some #(when (= db-name (:name %)) %) (:body (mb-get client [:database]))))
+
+(defn database-fields [client db-id]
+  (let [tables (-> client
+                   (mb-get [:database db-id]
+                           {:query-params {:include "tables.fields"}})
+                   (get-in [:body :tables]))]
+    (mapcat (fn [{:keys [schema name fields]}]
+              (map (fn [{:keys [id] field-name :name}]
+                     [schema name field-name id])
+                   fields))
+            tables)))
+
+(defn database-id [conn db-name]
+  (let [path [:databases db-name :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [db (find-database conn db-name)]
+        (swap! (:cache conn) assoc-in path (:id db))
+        (:id db)))))
+
+(defn field-id [conn db-name schema table field]
+  (let [path [:databases db-name
+              :schemas schema
+              :tables table
+              :fields field
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [db-id (database-id conn db-name)
+            fields (database-fields conn db-id)]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c [s t f id]]
+                           (assoc-in c
+                                     [:databases db-name
+                                      :schemas s
+                                      :tables t
+                                      :fields f
+                                      :id] id))
+                         cache fields)))
+        (get-in @(:cache conn) path)))))
+
+(defn- response-body [response]
+  (vary-meta (:body response)
+             assoc
+             ::request (::request (meta response))
+             ::response response))
+
+(defn path [{::keys [type dashboard-id] :keys [id]}]
+  (cond-> (case type
+            :card [:card]
+            :dashboard [:dashboard]
+            :dashboard-card [:dashboard dashboard-id :cards])
+    id (conj id)))
+
+(defn create! [conn entity]
+  (response-body (mb-post conn
+                          (path entity)
+                          {:form-params (dissoc entity ::type ::dashboard-id)})))
+
+(defn enable-embedding! [conn dashboard]
+  (response-body (mb-put conn
+                         [:dashboard (:id dashboard)]
+                         {:form-params
+                          {:enable-embedding true
+                           #_:embedding-params
+                           #_{:company "enabled"
+                              :fy "enabled"}}})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Data functions
+
+(defn native-query
+  "Data definition of a native query
+
+  - `:name` Name for this query
+  - `:database` The metabase DB id
+  - `:sql` The native query, as string or as honeysql query map. Can contain `{{variable}}` placeholders.
+  - `:display` How to visualize the result, e.g. `\"table\"`
+  - `:variables` Variables used in the native query, as a map from varname to options map
+  "
+  [{:keys [name database sql display variables]
+    :or {display "table"}
+    :as opts}]
+  {::type :card
+   :name name
    :database_id database
    :query_type "native"
    :dataset_query {:database database
@@ -139,11 +243,9 @@
    :display (as-str display)
    :visualization_settings {}})
 
-
-(defn display-as [card type]
-  (assoc card :display (as-str type)))
-
-(defn viz-settings [card settings]
+(defn viz-settings
+  "Set a card's visualization settings, takes nested maps."
+  [card settings]
   (update card :visualization_settings
           (fn [viz]
             (reduce (fn [viz [kk vs]]
@@ -156,99 +258,54 @@
                     viz
                     settings))))
 
-(comment
-  (def ccc (connect {:user "admin@example.com"
-                     :password "secret1"}))
+(defn bar-chart
+  "Display as a bar chart, provide at a minimum the `x-axis`/`y-axis` dimensions."
+  [qry {:keys [x-axis y-axis
+               x-label y-label
+               log?
+               stacked?]}]
+  (assert x-axis)
+  (assert y-axis)
+  (-> qry
+      (assoc :display "bar")
+      (viz-settings (cond-> {:graph {:dimensions (cond-> x-axis
+                                                   (not (coll? x-axis))
+                                                   vec)
+                                     :metrics (cond-> y-axis
+                                                (not (coll? y-axis))
+                                                vec)}}
+                      x-label
+                      (assoc-in [:graph :x_axis :title_text] x-label)
+                      y-label
+                      (assoc-in [:graph :x_axis :title_text] y-label)
+                      log?
+                      (assoc-in [:graph :y_axis :scale] "log")
+                      stacked?
+                      (assoc-in [:stackable :stack_type] "stacked")))))
 
-  (mb-get ccc [:user :current])
-  (:body   (mb-get ccc [:card]))
-  (:body (mb-get ccc [:database]))
+(defn dashboard [{:keys [name description variables]}]
+  {::type :dashboard
+   :name name
+   :description description
+   #_#_:parameters [{:name "Company"
+                     :slug "company"
+                     :id (str (gensym))
+                     :type "category"}]})
 
-
-  (json/write-str card-edn)
-
-  (path-url ccc "x")
-
-  (def sql "SELECT * FROM onze.company")
-
-  (mb-post ccc [:card] {:form-params (native-query-card-data
-                                      {:name "my card"
-                                       :database 2
-                                       :query sql})})
-  (:body (mb-post ccc
-                  [:card]
-                  {:form-params
-                   (-> (native-query {:name "account bars var"
-                                      :database 2
-                                      :sql {:select ["account__name" "amount"]
-                                            :from ["onze.journal_entry_line"]
-                                            :where [:= "account__name" "{{account}}"]}
-                                      :variables {:account {}}
-                                      :display :bar})
-                       (viz-settings {:graph {:dimensions ["account__name"]
-                                              :metrics ["amount"]}}))}))
-
-
-  (let [v1 (:native (:dataset_query (dissoc (:body (mb-get ccc [:card 4])) :result_metadata)))
-        v2 (:native (:dataset_query (dissoc (:body (mb-get ccc [:card 6])) :result_metadata)))]
-    (into {}
-          (keep (fn [k]
-                  (when (not= (v1 k) (v2 k))
-                    [k [(v1 k) (v2 k)]])))
-          (into (set (keys v1)) (keys v2))))
-
-
-  (map :description (:body(mb-get ccc [:database])))
-  (last (butlast (:body(mb-get ccc [:card]))))
-
-
-  (def card-edn
-    {:name "Accounts Payable - Company Filter"
-     :description "Query created via the API"
-     :visualization_settings {:table.pivot_column "description", :table.cell_column "balance"}
-     :database_id (:id (find-database ccc "datomic"))
-     :display "table"
-     :query_type "native"
-     :dataset_query
-     {:database (:id (find-database ccc "datomic"))
-      :type "native"
-      :native
-      {:template_tags {:company
-                       {:id (str (gensym))
-                        :name "company"
-                        :display_name "Company"
-                        :type "text"
-                        :required true}
-                       ;; We can do "smart" filters that allow a pre-populated
-                       ;; choice, but then we have to deal with MB's internal
-                       ;; table/column ids
-                       #_:fiscal_year
-                       #_{:id (str (gensym))
-                          :name "fiscal_year",
-                          :display_name "Fiscal year"
-                          :type "dimension"
-                          :dimension ["field-id" 1616] ;; onze.company_x_fiscal_year.id
-                          :widget_type "id"
-                          :required true}}
-       :query "SELECT
-          company_x_fiscal_years.id, company_x_fiscal_years.display_name,
-          account.number, account.description,
-          SUM(IF(flow = (SELECT db__id
-                   FROM onze.db__idents
-                   WHERE ident = ':flow/credit'),
-           amount,
-           (amount * -1))) AS balance
-        FROM onze.journal_entry_line
-        JOIN onze.account ON onze.account.db__id = onze.journal_entry_line.account
-        JOIN onze.journal_entry_x_journal_entry_lines ON onze.journal_entry_x_journal_entry_lines.journal_entry_lines = onze.journal_entry_line.db__id
-        JOIN onze.ledger_x_journal_entries            ON onze.ledger_x_journal_entries.journal_entries                = onze.journal_entry_x_journal_entry_lines.db__id
-        JOIN onze.fiscal_year_x_ledgers               ON onze.fiscal_year_x_ledgers.ledgers                           = onze.ledger_x_journal_entries.db__id
-        JOIN onze.company_x_fiscal_years              ON onze.company_x_fiscal_years.fiscal_years                     = onze.fiscal_year_x_ledgers.db__id
-        WHERE onze.account.subtype = (SELECT db__id
-                                      FROM onze.db__idents
-                                      WHERE ident = ':account.subtype/accounts-payable')
-        AND company_x_fiscal_years.id = {{company}}
-        AND {{fiscal_year}}
-        GROUP BY company_x_fiscal_years.id, company_x_fiscal_years.display_name, account.number, account.description
-        ORDER BY balance DESC
-        LIMIT 10"}}}))
+(defn dashboard-card [{:keys [card card-id x y width height
+                              dashboard dashboard-id]
+                       :or {width 10 height 10}}]
+  (cond-> {::type :dashboard-card
+           ::dashboard-id (or dashboard-id (:id dashboard))
+           :cardId (or card-id (:id card))
+           :sizeX width
+           :sizeY height
+           #_#_                 :parameter-mappings
+           [{:parameter-id (get-in dashboard [:parameters 0 :id])
+             :card-id (:id mb-card)
+             :target ["variable" ["template-tag" "company"]]}
+            {:parameter-id (get-in dashboard [:parameters 1 :id])
+             :card-id (:id mb-card)
+             :target ["dimension" ["template-tag" "fiscal_year"]]}]}
+    y (assoc :row y)
+    x (assoc :col x)))
