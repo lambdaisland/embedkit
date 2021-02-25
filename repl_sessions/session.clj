@@ -24,7 +24,7 @@
 ;; => 2
 
 ;; Simple example to warm up
-(->> (e/native-query {:name "my card"
+(->> (e/native-card {:name "my card"
                       :database (:id my-db)
                       :sql "SELECT * FROM onze.company"})
      (e/create! conn)
@@ -38,7 +38,7 @@
 ;; SQL by mashing together strings, but you can create the SQL however you like.
 
 (defn biggest-accounts []
-  (-> (e/native-query {:name "account bars var"
+  (-> (e/native-card {:name "account bars var"
                        :database 2
                        :sql {:select ["account__name" "SUM(amount) AS total"]
                              :from ["onze.journal_entry_line"]
@@ -52,7 +52,7 @@
      (browse!))
 
 (defn accounts-payable []
-  (-> (e/native-query {:name "Accounts payable - Top 10"
+  (-> (e/native-card {:name "Accounts payable - Top 10"
                        :database (:id my-db)
                        :sql {:select ["onze.account.number"
                                       "onze.account.name"
@@ -100,7 +100,7 @@
      browse-url
      time)
 
-(->> (-> (e/native-query {:name "my card"
+(->> (-> (e/native-card {:name "my card"
                           :database (:id my-db)
                           :sql "SELECT * FROM onze.company"})
 
@@ -121,7 +121,7 @@
 (reset! (:cache conn) {})
 
 (defn biggest-accounts-company []
-  (-> (e/native-query {:name "account bars var"
+  (-> (e/native-card {:name "account bars var"
                        :database 2
                        :variables {:company_legal_code {}}
                        :sql {:select ["account__name" "SUM(amount) AS total"]
@@ -137,7 +137,7 @@
       (e/bar-chart {:x-axis ["account__name"]
                     :y-axis ["total"]})))
 
-(->> {:name "My hello"
+(->> {:name "My dashboard"
       :cards [#_{:card (accounts-payable)
                  :width 7 :height 5}
               {:card (biggest-accounts-company)
@@ -167,3 +167,43 @@
                          {:variables {:id "BRE"}}))
 
 (reset! (:cache conn) {})
+
+(require '[lambdaisland.embedkit :as e]
+         '[lambdaisland.embedkit.repl :as r])
+
+(def conn (e/connect {:user "admin@example.com" :password "..." :secret-key "..."}))
+
+(def db (e/find-database "orders"))
+
+(e/find-or-create!
+ conn
+ (e/dashboard {:name "My sales dashboard"
+               :cards [{:card (my-card-fn)
+                        :x 5 :y 0
+                        :width 12 :height 10}]}))
+
+;; Open the dashboard in the browser, REPL helper for local testing
+(r/browse! dashboard)
+
+;; Get an embed-url that you can use in an iframe
+(e/embed-url conn dashboard)
+
+(e/native-card {:name "Monthly revenue"
+                :database {:id 2}
+                :sql {:select ["month" "SUM(amount) AS total"]
+                      :from ["orders"]
+                      :group-by ["month"]
+                      :order-by ["month"]}})
+
+
+{:lambdaisland.embedkit/type :card
+ :name "Monthly revenue"
+ :database_id {:id 2}
+ :query_type "native"
+ :dataset_query {:database {:id 2}
+                 :type "native"
+                 :native
+                 {:query "SELECT month SUM(amount) AS total FROM orders GROUP BY month ORDER BY month"}}
+ :display "table"
+ :visualization_settings {}
+ :lambdaisland.embedkit/variables {}}

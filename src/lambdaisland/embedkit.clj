@@ -87,6 +87,13 @@
          :as :json}
         (cond-> middleware (assoc :middleware middleware))
         (into opts))))
+(def conn (e/connect {:user "admin@example.com"
+                      :password "..."
+                      ;; See the metabase embed settings for this
+                      :secret-key "..."
+                      :host "localhost"
+                      :port 3000
+                      :https? false?}))
 
 (defn connect
   "Create a connection to the Metabase API. This does an authentication call to
@@ -388,7 +395,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Data functions
 
-(defn native-query
+(defn native-card
   "Data definition of a native query. Returns a Card resource that can be passed to `create!`.
 
   - `:name` Name for this query
