@@ -202,6 +202,42 @@ want to display. Finally you get to put them together in a dashboard.
 
 This will create the dashboards, the cards, and then the dashboard cards.
 
+Finally you can pass the result of `find-or-create!` to `embed-url` to get a URL
+you can use to create an iframe. The result is a `lambdaisland.uri`, call `str`
+on it to get the URL as a string.
+
+### Variables
+
+Metabase allows you to create "variables" for queries/cards, hook these up to
+"parameters" of dashboards, and fill them in when creating embed-urls. This
+requires definitions in three different places. This is one of the things that
+is extremely opaque to do via the API. We simplify this by taking variable
+definitions on the cards, and wiring these up automatically to dashboard-cards,
+and exposing them in embed urls via the signed payload ("locked" parameters).
+
+The main use case so far is to allow reusing a single dashboard definition
+containing some placeholder variables.
+
+``` clojure
+(e/native-card {:variables {:category {}} 
+                :sql {:where [:= "category" "{{category}}"})
+```
+
+- Use `{{var_name}}` placeholders in your SQL
+- Add a corresponding entry in the `:variables` map. The associated key is a map
+  with variable-specific options, like `:type`. It can be left empty. The
+  default `:type` is `"text"`.
+  
+When using this to create a dashboard, corresponding parameter will be created
+for the dashboard, which will be set to "embeddable, locked". That is, you can
+set them via the JWT-signed payload, but the user can't set them via the URL.
+
+When calling `embed-url` you can pass values for these variables.
+
+``` clojure
+(e/embed-url conn (e/find-or-create! (my-dashboard)) {:variables {:category "toys"}})
+```
+
 <!-- contributing -->
 ## Contributing
 
