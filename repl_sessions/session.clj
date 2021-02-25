@@ -2,74 +2,32 @@
   (:require [clojure.java.browse :refer [browse-url]]
             [clojure.pprint :as pprint]
             [clojure.string :as str]
-            [lambdaisland.embedkit :as e]))
+            [lambdaisland.embedkit :as e]
+            [lambdaisland.embedkit.repl :as r :refer [browse!]]
+            [lambdaisland.embedkit.watch :as w :refer [watch! unwatch!]]))
 
 ;; Start embedkit connection, this will grab a token from Metabase and hold it
 ;; for later requests. It also instantiates a Hato (Java 11 HttpClient wrapper)
 ;; instance, and keeps a cache for certain requests.
-(def my-conn (e/connect {:user "admin@example.com"
-                         :password "secret1"}))
+(def conn (e/connect {:user "admin@example.com"
+                      :password "secret1"
+                      :secret-key "edd85e0d585cecaa9e77d203993566b13bda4c962281e3fa8e4877374a7addd7"
+                      #_#_:middleware (conj hato.middleware/default-middleware
+                                            r/print-request-mw)}))
 
-#_ (reset! (:cache my-conn) {})
+(e/populate-cache conn)
 
 ;; We'll need to know the numeric id of our database in Metabase. This is an
 ;; example of something that gets cached.
-(def my-db (e/find-database my-conn "datomic"))
-
+(def my-db (e/find-database conn "datomic"))
 (:id my-db)
 ;; => 2
-
-;; Clean up after experimenting. "Card" here means metabase query, they use the
-;; terms interchangably
-(defn delete-all-cards! []
-  (doseq [{:keys [id]} (:body (e/mb-get my-conn [:card]))]
-    (println "Deleting card" id)
-    (e/mb-delete my-conn [:card id])))
-
-;; Helper to open the result of an operation
-(defn browse! [res]
-  (browse-url (str "http://localhost:3000/"
-                   (cond
-                     (str/includes? (-> res meta ::e/request :url)
-                                    "/api/card")
-                     "question"
-                     (str/includes? (-> res meta ::e/request :url)
-                                    "/api/dashboard")
-                     "dashboard")
-                   "/"
-                   (:id res))))
-
-(defonce watches (atom {}))
-
-;; "Watch" a given resource, this keep re-fetching it from the API, and printing
-;; any keys that have changed. This allows us to make changes in the UI and see
-;; how they correspond with the data.
-(defn watch! [path]
-  (let [card (:body (e/mb-get my-conn path))]
-    (swap! watches assoc path card)
-    (future
-      (loop []
-        (let [before (get @watches path)]
-          (when before
-            (let [card (:body (e/mb-get my-conn path))]
-              (when (not= before card)
-                (println "--------------------------------------------")
-                (clojure.pprint/pprint (into {}
-                                             (remove (fn [[k v]]
-                                                       (= v (get before k))))
-                                             card))
-                (swap! watches path card)
-                (Thread/sleep 1000))
-              (recur))))))))
-
-(defn unwatch! [id]
-  (swap! watches dissoc id))
 
 ;; Simple example to warm up
 (->> (e/native-query {:name "my card"
                       :database (:id my-db)
                       :sql "SELECT * FROM onze.company"})
-     (e/create! my-conn)
+     (e/create! conn)
      browse!)
 
 ;; Now let's decorate this, the bar-chart function changes the visualiztion from
@@ -90,7 +48,7 @@
                     :y-axis ["total"]})))
 
 (->> (biggest-accounts)
-     (e/create! my-conn)
+     (e/create! conn)
      (browse!))
 
 (defn accounts-payable []
@@ -113,19 +71,99 @@
 
 ;; More complex query, show top accounts payable
 (->> (accounts-payable)
-     (e/create! my-conn)
+     (e/create! conn)
      (browse!))
 
 (watch! [:card 48])
 (watch! [:dashboard 1])
 
-(let [card1 (e/create! my-conn (accounts-payable))
-      card2 (e/create! my-conn (biggest-accounts))
-      dash (e/create! my-conn (e/dashboard {:name "Foo" :description "ok"}))]
-  (e/create! my-conn (e/dashboard-card {:card card1 :dashboard dash
-                                        :x 0 :y 0 :width 5 :height 5}))
-  (e/create! my-conn (e/dashboard-card {:card card2 :dashboard dash
-                                        :x 5 :y 0 :width 5 :height 5}))
-  (browse! dash))
+(let [card1 (e/create! conn (accounts-payable))
+      card2 (e/create! conn (biggest-accounts))
+      dash (e/create! conn (e/dashboard {:name "Foo"}))]
+  (e/create! conn (e/dashboard-card {:card card1 :dashboard dash
+                                     :x 0 :y 0 :width 5 :height 5}))
+  (e/create! conn (e/dashboard-card {:card card2 :dashboard dash
+                                     :x 5 :y 0 :width 5 :height 5}))
+  (e/enable-embedding! conn dash)
+  (browse-url (str (e/embed-url conn dash))))
 
-(watch! [:dashboard 6])
+(->> {:name "Foo"
+      :cards [{:card (accounts-payable)
+               :width 7 :height 5}
+              {:card (biggest-accounts-company)
+               :x 7
+               :width 7 :height 5}]}
+     e/dashboard
+     (e/find-or-create! conn)
+     (e/embed-url conn)
+     str
+     browse-url
+     time)
+
+(->> (-> (e/native-query {:name "my card"
+                          :database (:id my-db)
+                          :sql "SELECT * FROM onze.company"})
+
+         )
+     (e/find-or-create! conn)
+     browse!)
+
+@(:cache conn)
+
+(e/mb-get conn [:card 110])
+
+(doseq [card (:body (e/mb-get conn [:card 111]))]
+  (when-let [hash (get-in card [:visualization_settings :embedkit.hash])]
+    ))
+
+(r/delete-all-cards! conn)
+(r/delete-all-dashboards! conn)
+(reset! (:cache conn) {})
+
+(defn biggest-accounts-company []
+  (-> (e/native-query {:name "account bars var"
+                       :database 2
+                       :variables {:company_legal_code {}}
+                       :sql {:select ["account__name" "SUM(amount) AS total"]
+                             :from ["onze.journal_entry_line"]
+                             :where [:= "company.legal_code" "{{company_legal_code}}"]
+                             :join ["onze.journal_entry_x_journal_entry_lines" [:= "journal_entry_line.db__id" "journal_entry_x_journal_entry_lines.journal_entry_lines"]
+                                    "onze.ledger_x_journal_entries" [:= "journal_entry_x_journal_entry_lines.db__id" "ledger_x_journal_entries.journal_entries"]
+                                    "onze.fiscal_year_x_ledgers" [:= "ledger_x_journal_entries.db__id" "fiscal_year_x_ledgers.ledgers"]
+                                    "onze.company_x_fiscal_years" [:= "fiscal_year_x_ledgers.db__id" "company_x_fiscal_years.fiscal_years"]
+                                    "tnt.company" [:= "company_x_fiscal_years.id" "company.uuid"]]
+                             :group-by ["account__name"]
+                             :order-by [["total" :desc]]}})
+      (e/bar-chart {:x-axis ["account__name"]
+                    :y-axis ["total"]})))
+
+(->> {:name "My hello"
+      :cards [#_{:card (accounts-payable)
+                 :width 7 :height 5}
+              {:card (biggest-accounts-company)
+               :x 7
+               :width 7 :height 5}]}
+     e/dashboard
+     (e/find-or-create! conn)
+     (#(e/embed-url conn % {:variables {:company_legal_code "BRE"}}))
+     str
+     browse-url
+     #_time)
+
+(watch! conn [:dashboard 55])
+(browse! ddd)
+(def after (:body (e/mb-get conn [:dashboard 54])))
+
+(dissoc before :ordered_cards)
+(dissoc after :ordered_cards)
+
+(w/only-changes before after)
+
+(map :parameter_mappings (:ordered_cards before))
+(map :parameter_mappings (:ordered_cards after))
+
+(browse-url (e/embed-url conn
+                         (:body (e/mb-get conn [:dashboard 56]))
+                         {:variables {:id "BRE"}}))
+
+(reset! (:cache conn) {})

@@ -2,10 +2,12 @@
 
  :deps
  {org.clojure/clojure   {:mvn/version "1.10.2"}
-  hato/hato             {:mvn/version "0.8.0"}
   org.clojure/data.json {:mvn/version "1.0.0"}
+  buddy/buddy-sign      {:mvn/version "3.3.0"}
+  hato/hato             {:mvn/version "0.8.0"}
+  honeysql/honeysql     {:mvn/version "1.0.461"}
   io.replikativ/hasch   {:mvn/version "0.3.7"}
-  honeysql/honeysql     {:mvn/version "1.0.444"}}
+  lambdaisland/uri      {:mvn/version "1.4.54"}}
 
  :aliases
  {:dev
@@ -14,4 +16,4 @@
 
   :test
   {:extra-paths ["test"]
-   :extra-deps  {lambdaisland/kaocha {:mvn/version "1.0.632"}}}}}
+   :extra-deps  {lambdaisland/kaocha {:mvn/version "1.0.732"}}}}}
