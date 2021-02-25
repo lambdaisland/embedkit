@@ -74,7 +74,7 @@ Let's start with a teaser
 ``` clojure
 (def conn (e/connect {:user "admin@example.com" :password "..." :secret-key "..."}))
 
-(def db (e/find-database "orders"))
+(def db (e/find-database conn "orders"))
 
 (def dashboard (->> (e/dashboard {:name "My sales dashboard"
                                   :cards [{:card (-> (e/native-card {:name "Monthly revenue"

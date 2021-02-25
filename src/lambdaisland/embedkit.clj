@@ -87,13 +87,6 @@
          :as :json}
         (cond-> middleware (assoc :middleware middleware))
         (into opts))))
-(def conn (e/connect {:user "admin@example.com"
-                      :password "..."
-                      ;; See the metabase embed settings for this
-                      :secret-key "..."
-                      :host "localhost"
-                      :port 3000
-                      :https? false?}))
 
 (defn connect
   "Create a connection to the Metabase API. This does an authentication call to
@@ -176,7 +169,8 @@
           (assoc :fragment (uri/map->query-string
                             (assoc filters
                                    :bordered (str bordered?)
-                                   :titled (str titled?))))))))
+                                   :titled (str titled?))))
+          str))))
 
 (defn embed-url
   "Get an embedding URL for a given resource."
@@ -225,7 +219,7 @@
                  :databases
                  (fnil into {})
                  (doto (map (juxt :name identity)
-                            (mb-get conn [:database]))))
+                            (:body (mb-get conn [:database])))))
           (get-in @(:cache conn) path)))))
 
 
@@ -373,7 +367,8 @@
     (with-cache conn [:by-hash hash]
       ;; Dashboard-card with a card, create/find the card first
       (let [entity (if card
-                     (let [card-id (:id (find-or-create! conn card))]
+                     (let [card-id (or (:id card)
+                                       (:id (find-or-create! conn card)))]
                        (-> entity
                            (assoc :cardId card-id)
                            (update :parameter_mappings (partial map #(assoc % :card_id card-id)))))
@@ -501,8 +496,8 @@
     {::type :dashboard
      :name name
      :enable_embedding true
-     :embedding_params (reduce (fn [m {:keys [name]}]
-                                 (assoc m name "locked"))
+     :embedding_params (reduce (fn [m {:keys [name editable?]}]
+                                 (assoc m name (if editable? "enabled" "locked")))
                                {}
                                (vals variables))
      ::dashboard-cards (map dashboard-card cards)

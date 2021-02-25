@@ -25,9 +25,9 @@
 
 ;; Simple example to warm up
 (->> (e/native-card {:name "my card"
-                      :database (:id my-db)
-                      :sql "SELECT * FROM onze.company"})
-     (e/create! conn)
+                     :database (:id my-db)
+                     :sql "SELECT * FROM onze.company"})
+     (e/find-or-create! conn)
      browse!)
 
 ;; Now let's decorate this, the bar-chart function changes the visualiztion from
@@ -150,9 +150,9 @@
      browse-url
      #_time)
 
-(watch! conn [:dashboard 55])
+(watch! conn [:dashboard ])
 (browse! ddd)
-(def after (:body (e/mb-get conn [:dashboard 54])))
+(def after (:body (e/mb-get conn [:dashboard 62])))
 
 (dissoc before :ordered_cards)
 (dissoc after :ordered_cards)
@@ -194,16 +194,3 @@
                       :from ["orders"]
                       :group-by ["month"]
                       :order-by ["month"]}})
-
-
-{:lambdaisland.embedkit/type :card
- :name "Monthly revenue"
- :database_id {:id 2}
- :query_type "native"
- :dataset_query {:database {:id 2}
-                 :type "native"
-                 :native
-                 {:query "SELECT month SUM(amount) AS total FROM orders GROUP BY month ORDER BY month"}}
- :display "table"
- :visualization_settings {}
- :lambdaisland.embedkit/variables {}}
