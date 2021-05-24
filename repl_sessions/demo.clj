@@ -6,8 +6,6 @@
             [lambdaisland.embedkit.repl :as r]
             [lambdaisland.embedkit.watch :as w :refer [watch! unwatch!]]))
 
-(r/delete-all-dashboards! conn)
-
 (def conn (e/connect {:user "admin@example.com"
                       :password "secret1"
                       ;; http://localhost:3000/admin/settings/embedding_in_other_applications
@@ -50,7 +48,7 @@ card
 
 (r/browse! (e/find-or-create! conn (e/dashboard {:name "My dashboard"})))
 
-(let [card (e/find-or-create! conn card)
+(let [card      (e/find-or-create! conn card)
       dashboard (e/find-or-create! conn (e/dashboard {:name "My dashboard"}))]
   (e/find-or-create! conn (e/dashboard-card {:card card
                                              :dashboard dashboard})))
@@ -73,7 +71,7 @@ card
 (def biggest-accounts
   (-> (e/native-card {:name "Biggest accounts"
                       :database 2
-                      :variables {:company_legal_code {} #_{:editable? true}}
+                      :variables {:company_legal_code {:editable? true}}
                       :sql {:select ["account__name" "SUM(amount) AS total"]
                             :from ["onze.journal_entry_line"]
                             :where [:= "company.legal_code" "{{company_legal_code}}"]
@@ -88,6 +86,7 @@ card
                     :y-axis ["total"]})))
 
 
+(r/browse! (e/find-or-create! conn biggest-accounts))
 
 (def var-dashboard (e/dashboard {:name "Var dashboard"
                                  :cards [{:card biggest-accounts}]}))
@@ -95,6 +94,6 @@ card
 
 (r/browse! (e/find-or-create! conn var-dashboard))
 
-(def iframe-url (e/embed-url conn (e/find-or-create! conn var-dashboard) {:variables {:company_legal_code "BRE"}}))
+(def iframe-url (e/embed-url conn (e/find-or-create! conn var-dashboard)))
 
 (browse-url iframe-url)
