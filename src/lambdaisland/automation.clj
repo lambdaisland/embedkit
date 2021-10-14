@@ -26,7 +26,7 @@
   (let [setup-url (str base-url "/api/setup")
         data {:token setup-token
               :user {:email user :password password
-                     :first_name "Eleven" :last_name "Run"}
+                     :first_name "lambdaisland.com" :last_name "gaiwan.co"}
               :prefs {:site_name "Metabase BI"}}
         {:keys [status body]} (http/request {:method :post
                                              :url setup-url
