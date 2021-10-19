@@ -1,4 +1,4 @@
-(ns lambdaisland.automation
+(ns lambdaisland.embedkit.setup
   "The automation helpers to automate the init setup of metabase"
   (:require [lambdaisland.embedkit :as embedkit]
             [clojure.data.json :as json]
@@ -80,23 +80,18 @@
 (defn get-embedding-secret-key
   "retrive the embedding-secret-key"
   [e-conn]
+  {:pre [(record? e-conn)]}
   (get-metabase-setting-by-key! e-conn "embedding-secret-key"))
 
-(defn create-presto-db!
-  "Create the presto-db in metabase if it does not exist"
-  [e-conn presto-db-name]
-  (when (nil? (embedkit/find-database e-conn presto-db-name))
+(defn create-db!
+  "Create the database in metabase if it does not exist"
+  [e-conn db-name engine details]
+  {:pre [(record? e-conn) (string? db-name) (string? engine) (map? details)]}
+  (when (nil? (embedkit/find-database e-conn db-name))
     (do
       (embedkit/mb-post
        e-conn
        "/api/database"
-       {:form-params {:name presto-db-name
-                      :engine "presto"
-                      :details
-                      {:host "localhost"
-                       :port 4383
-                       :catalog "analytics"
-                       :user "."
-                       :password ""
-                       :ssl false
-                       :tunnel-enabled false}}}))))
+       {:form-params {:name db-name
+                      :engine engine
+                      :details details}}))))

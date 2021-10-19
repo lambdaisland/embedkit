@@ -1,26 +1,37 @@
 (ns init
   (:require [lambdaisland.embedkit :as e]
             [lambdaisland.embedkit.repl :as r]
-            [lambdaisland.automation :as automation]))
+            [lambdaisland.embedkit.setup :as setup]))
 
 (def config {:user "admin@example.com"
              :password "secret1"})
 
 ;; create admin user and enable embedded
-(automation/init-metabase! config)
+(setup/init-metabase! config)
 ;; get the embedding secret key
 (def config* (assoc config
-                    :secret-key (automation/get-embedding-secret-key (e/connect config))))
+                    :secret-key (setup/get-embedding-secret-key (e/connect config))))
 
 (def conn (e/connect config*))
 
+
 ;; create the database
-(automation/create-presto-db! conn "datomic")
+
+
+(def engine "presto")
+(def details {:host "localhost"
+              :port 4383
+              :catalog "analytics"
+              :user "."
+              :password ""
+              :ssl false
+              :tunnel-enabled false})
+(setup/create-db! conn "presto-db" engine details)
 
 ;; init finished here
 ;; demo
 
-(def db (e/find-database conn "datomic"))
+(def db (e/find-database conn "presto-db"))
 
 (:id db)
 
