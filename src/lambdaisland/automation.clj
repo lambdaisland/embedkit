@@ -61,14 +61,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; init API
 
-
 (defn init-metabase!
   "Doing the following things:
-   
+
    1. create the first user
    2. enable embedding"
   [{:keys [user password
-           ;; optional 
+           ;; optional
            https? host port]
     :or {https? false
          host "localhost"
