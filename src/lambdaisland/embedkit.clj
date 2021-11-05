@@ -6,8 +6,8 @@
             [clojure.walk :as walk]
             [hasch.core :as hasch]
             [hasch.hex :as hasch-hex]
-            [hato.client :as http]
-            [hato.middleware :as hato-mw]
+            [clj-http.client :as http]
+            [clj-http.core :as http-core]
             [honeysql.core :as honey]
             [lambdaisland.uri :as uri])
   (:import (java.util UUID)))
@@ -30,39 +30,6 @@
   (if (instance? clojure.lang.Named v)
     (name v)
     (str v)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Plumbing
-
-;; Use clojure.data.json instead of Cheshire
-(defmethod hato-mw/coerce-form-params :application/json
-  [{:keys [form-params json-opts]}]
-  (apply json/write-str form-params (mapcat identity json-opts)))
-
-(defmethod hato-mw/coerce-response-body :json [{:keys [coerce] :as req}
-                                               {:keys [body status] :as resp}]
-  (let [^String charset (or (-> resp :content-type-params :charset) "UTF-8")]
-    (cond
-      (and (hato-mw/unexceptional-status? status)
-           (or (nil? coerce) (= coerce :unexceptional)))
-      (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body (json/read r
-                                     :key-fn keyword
-                                     :eof-error? false)))
-
-      (= coerce :always)
-      (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body (json/read r
-                                     :key-fn keyword
-                                     :eof-error? false)))
-
-      (and (not (hato-mw/unexceptional-status? status)) (= coerce :exceptional))
-      (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body  (json/read r
-                                      :key-fn keyword
-                                      :eof-error? false)))
-
-      :else (assoc resp :body (slurp body :encoding charset)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Connection
@@ -90,7 +57,7 @@
 
 (defn connect
   "Create a connection to the Metabase API. This does an authentication call to
-  get a token that is used subsequently. Returns a Connection which wraps a Hato
+  get a token that is used subsequently. Returns a Connection which wraps a
   HttpClient instance, endpoint details, the token, and a cache atom to reduce
   requests.
 
@@ -100,7 +67,7 @@
   Metabase embed settings."
   [{:keys [user password
            ;; optional
-           host port https? hato-client connect-timeout
+           host port https? http-client connect-timeout
            secret-key middleware]
     :or {connect-timeout 10000
          https? false
@@ -109,10 +76,7 @@
   (when-not secret-key
     (binding [*out* *err*]
       (println "WARNING: no :secret-key provided to" `connect ", generating embed urls will be disabled.")))
-  (let [client (or hato-client
-                   (http/build-http-client
-                    {:connect-timeout connect-timeout
-                     :redirect-policy :always}))
+  (let [client http-client
         endpoint (str "http" (when https? "s") "://" host (when port (str ":" port)))
         token (:id (:body (http/post (str endpoint "/api/session")
                                      {:http-client client
@@ -221,7 +185,6 @@
                  (doto (map (juxt :name identity)
                             (:body (mb-get conn [:database])))))
           (get-in @(:cache conn) path)))))
-
 
 (defn fetch-database-fields
   "Get all tables/fields for a given db-id. Always does a request."
