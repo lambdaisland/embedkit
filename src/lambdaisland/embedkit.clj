@@ -287,6 +287,33 @@
                          cache fields)))
         (get-in @(:cache conn) path)))))
 
+(defn fetch-all-users
+  "Get users. Always does a request."
+  [client]
+  (let [user-list (-> client
+                      (mb-get [:user] 
+                              {:query-params {:include_deactivated "true"}})
+                      (get-in [:body]))]
+    user-list))
+
+(defn user-id
+  "Find the numeric id of a given user email Leverages the cache."
+  [conn email]
+  (let [path [:user-email email
+              :id]]
+    (prn "user-id " path)
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [users (fetch-all-users conn)]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c {:keys [email id]}]
+                           (assoc-in c
+                                     [:user-email email
+                                      :id] id))
+                         cache users)))
+        (get-in @(:cache conn) path)))))
+
 (def embedkit-keys
   "Keys that we add interally to entity maps. Generally we deal with data exactly
   as the Metabase API expects it and returns, but we add these namespaced keys

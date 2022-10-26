@@ -16,3 +16,6 @@ conn
 (e/fetch-database-fields conn (:id db))
 (e/table-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted")
 (e/field-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted" "document_date")
+
+(e/fetch-all-users conn)
+(e/user-id conn "aaa@example.com")
