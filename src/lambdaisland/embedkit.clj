@@ -338,6 +338,16 @@
                          cache groups)))
         (get-in @(:cache conn) path)))))
 
+(defn trigger-db-fn!
+  "When success, return ... "
+  [conn db-name db-fn-link]
+  {:pre [(#{"sync_schema" "rescan_values"} db-fn-link )]}
+  (let [db-id (:id (find-database conn db-name))
+        resp (-> conn
+                 (mb-post [:database db-id (keyword db-fn-link)])
+                 (get-in [:body]))]
+    resp))
+
 (def embedkit-keys
   "Keys that we add interally to entity maps. Generally we deal with data exactly
   as the Metabase API expects it and returns, but we add these namespaced keys

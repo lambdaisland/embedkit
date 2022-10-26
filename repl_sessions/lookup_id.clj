@@ -22,3 +22,6 @@ conn
 
 (e/fetch-all-groups conn)
 (e/group-id conn "Administrators")
+
+(e/trigger-db-fn! conn "example_tenant" "sync_schema")
+(e/trigger-db-fn! conn "example_tenant" "rescan_values")
