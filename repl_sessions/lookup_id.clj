@@ -19,3 +19,6 @@ conn
 
 (e/fetch-all-users conn)
 (e/user-id conn "aaa@example.com")
+
+(e/fetch-all-groups conn)
+(e/group-id conn "Administrators")

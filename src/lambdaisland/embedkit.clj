@@ -291,7 +291,7 @@
   "Get users. Always does a request."
   [client]
   (let [user-list (-> client
-                      (mb-get [:user] 
+                      (mb-get [:user]
                               {:query-params {:include_deactivated "true"}})
                       (get-in [:body]))]
     user-list))
@@ -301,7 +301,6 @@
   [conn email]
   (let [path [:user-email email
               :id]]
-    (prn "user-id " path)
     (if-let [id (get-in @(:cache conn) path)]
       id
       (let [users (fetch-all-users conn)]
@@ -312,6 +311,31 @@
                                      [:user-email email
                                       :id] id))
                          cache users)))
+        (get-in @(:cache conn) path)))))
+
+(defn fetch-all-groups
+  "Get groups. Always does a request."
+  [client]
+  (let [group (-> client
+                  (mb-get [:permissions :group])
+                  (get-in [:body]))]
+    group))
+
+(defn group-id
+  "Find the numeric id of a given group name. Leverages the cache."
+  [conn name]
+  (let [path [:group-name name
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [groups (fetch-all-groups conn)]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c {:keys [name id]}]
+                           (assoc-in c
+                                     [:group-name name
+                                      :id] id))
+                         cache groups)))
         (get-in @(:cache conn) path)))))
 
 (def embedkit-keys
