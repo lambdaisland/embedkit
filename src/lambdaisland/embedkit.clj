@@ -222,19 +222,45 @@
                             (:body (mb-get conn [:database])))))
           (get-in @(:cache conn) path)))))
 
-
 (defn fetch-database-fields
   "Get all tables/fields for a given db-id. Always does a request."
   [client db-id]
   (let [tables (-> client
                    (mb-get [:database db-id]
                            {:query-params {:include "tables.fields"}})
-                   (get-in [:body :tables]))]
-    (mapcat (fn [{:keys [schema name fields]}]
-              (map (fn [{:keys [id] field-name :name}]
-                     [schema name field-name id])
-                   fields))
-            tables)))
+                   (get-in [:body :tables]))
+        f-index (mapcat (fn [{:keys [schema name fields]}]
+                          (map (fn [{:keys [id] field-name :name}]
+                                 [schema name field-name id])
+                               fields))
+                        tables)
+        t-index (map (fn [{:keys [schema name id]}]
+                       [schema name id]) tables)]
+    {:f-index f-index
+     :t-index t-index}))
+
+(defn table-id
+  "Find the numeric id of a given table in a database/schema. Leverages the
+  cache."
+  [conn db-name schema table]
+  (let [path [:databases db-name
+              :schemas schema
+              :tables table
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [db-id (:id (find-database conn db-name))
+            tables (:t-index (fetch-database-fields conn db-id))]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c [s t id]]
+                           (assoc-in c
+                                     [:databases db-name
+                                      :schemas s
+                                      :tables t
+                                      :id] id))
+                         cache tables)))
+        (get-in @(:cache conn) path)))))
 
 (defn field-id
   "Find the numeric id of a given field in a database/schema/table. Leverages the
@@ -248,7 +274,7 @@
     (if-let [id (get-in @(:cache conn) path)]
       id
       (let [db-id (:id (find-database conn db-name))
-            fields (fetch-database-fields conn db-id)]
+            fields (:f-index (fetch-database-fields conn db-id))]
         (swap! (:cache conn)
                (fn [cache]
                  (reduce (fn [c [s t f id]]
