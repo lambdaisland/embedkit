@@ -85,13 +85,13 @@
 
 (defn create-db!
   "Create the database in metabase if it does not exist"
-  [e-conn db-name engine details]
-  {:pre [(record? e-conn) (string? db-name) (string? engine) (map? details)]}
-  (when (nil? (embedkit/find-database e-conn db-name))
-    (do
-      (embedkit/mb-post
-       e-conn
-       "/api/database"
-       {:form-params {:name db-name
-                      :engine engine
-                      :details details}}))))
+  [e-conn db-conn-name engine details]
+  {:pre [(record? e-conn) (string? db-conn-name) (string? engine) (map? details)]}
+  (if (nil? (embedkit/find-database e-conn db-conn-name))
+    (embedkit/mb-post
+     e-conn
+     "/api/database"
+     {:form-params {:name db-conn-name
+                    :engine engine
+                    :details details}})
+    (prn "duplicated db-conn-name " db-conn-name "already exists.")))
