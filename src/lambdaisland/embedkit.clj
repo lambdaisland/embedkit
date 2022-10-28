@@ -58,9 +58,9 @@
 
       (and (not (hato-mw/unexceptional-status? status)) (= coerce :exceptional))
       (with-open [r (io/reader body :encoding charset)]
-        (assoc resp :body  (json/read r
-                                      :key-fn keyword
-                                      :eof-error? false)))
+        (assoc resp :body (json/read r
+                                     :key-fn keyword
+                                     :eof-error? false)))
 
       :else (assoc resp :body (slurp body :encoding charset)))))
 
