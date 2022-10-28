@@ -275,6 +275,13 @@ See the example file from `repl_sessions/create_db_conn.clj`
 (setup/create-db! conn db-conn-name engine details)
 ```
 
+#### Trigger the sync of a db schema and field values
+
+```
+(e/trigger-db-fn! conn "example_tenant" :sync_schema)
+(e/trigger-db-fn! conn "example_tenant" :rescan_values)
+```
+
 <!-- contributing -->
 ## Contributing
 

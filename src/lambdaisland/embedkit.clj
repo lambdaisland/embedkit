@@ -341,7 +341,8 @@
 (defn trigger-db-fn!
   "When success, return ... "
   [conn db-name db-fn-link]
-  {:pre [(#{"sync_schema" "rescan_values"} db-fn-link )]}
+  {:pre [(or (#{"sync_schema" "rescan_values"} db-fn-link)
+             (#{:sync_schema :rescan_values} db-fn-link))]}
   (let [db-id (:id (find-database conn db-name))
         resp (-> conn
                  (mb-post [:database db-id (keyword db-fn-link)])

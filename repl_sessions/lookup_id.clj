@@ -10,8 +10,6 @@
 conn
 
 (def db (e/find-database conn "example_tenant"))
-
-
 ;;
 (e/fetch-database-fields conn (:id db))
 (e/table-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted")
@@ -23,5 +21,5 @@ conn
 (e/fetch-all-groups conn)
 (e/group-id conn "Administrators")
 
-(e/trigger-db-fn! conn "example_tenant" "sync_schema")
-(e/trigger-db-fn! conn "example_tenant" "rescan_values")
+(e/trigger-db-fn! conn "example_tenant" :sync_schema)
+(e/trigger-db-fn! conn "example_tenant" :rescan_values)
