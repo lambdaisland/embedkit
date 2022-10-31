@@ -238,6 +238,43 @@ When calling `embed-url` you can pass values for these variables.
 (e/embed-url conn (e/find-or-create! (my-dashboard)) {:variables {:category "toys"}})
 ```
 
+### Other utilities
+
+#### Initialize the metabase
+See the example file from `repl_sessions/init.clj`
+
+```
+(def config {:user "admin@example.com"
+             :password "xxxxxx"})
+;; create admin user and enable embedded
+(setup/init-metabase! config)
+
+;; setup embedding secret key
+(e/mb-put conn*
+          [:setting :embedding-secret-key]
+          {:form-params {:value "6fa6b6600d27ff276d3d0e961b661fb3b082f8b60781e07d11b8325a6e1025c5"}})
+
+;; get the embedding secret key
+(def config* (assoc config
+                    :secret-key (get
+                                 (setup/get-embedding-secret-key conn*)
+                                 :value)))
+
+;; begin normal connection
+(def conn (e/connect config*))
+```
+
+#### Create a new db connection
+See the example file from `repl_sessions/create_db_conn.clj`
+
+```
+;; Example for Postgres 
+(def db-conn-name "metabase-db-connection-name")
+(def engine "postgres")
+(def details {...}) 
+(setup/create-db! conn db-conn-name engine details)
+```
+
 <!-- contributing -->
 ## Contributing
 

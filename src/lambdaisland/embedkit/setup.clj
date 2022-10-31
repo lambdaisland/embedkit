@@ -47,16 +47,22 @@
                                              :url setting-url
                                              :content-type :json
                                              :form-params data})]
-    (when (= 200 status)
+    (if (= 200 status)
       (json/read-str body
-                     :key-fn keyword))))
+                     :key-fn keyword)
+      (prn {:api-endpoint "/api/setting/enable-embedding"
+            :status status
+            :body body}))))
 
-(defn get-metabase-setting-by-key!
+(defn get-metabase-setting!
   "get metabase setting using /api/setting GET API"
-  [e-conn key]
-  (let [resp (embedkit/mb-get e-conn "/api/setting/")
-        kv-pairs (filterv #(= (:key %) key) (:body resp))]
-    (:value (first kv-pairs))))
+  ([e-conn]
+   (let [resp (embedkit/mb-get e-conn "/api/setting/")]
+     (:body resp)))
+  ([e-conn key]
+   (let [resp (embedkit/mb-get e-conn "/api/setting/")
+         kv-pairs (filterv #(= (:key %) key) (:body resp))]
+     (first kv-pairs))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; init API
@@ -75,13 +81,16 @@
   (let [base-url (metabase-endpoint https? host port)
         setup-token (get-metabase-setup-token! base-url)
         session-key (create-admin-user! base-url setup-token user password)]
+    (comment (prn {:base-url base-url
+                   :setup-token setup-token
+                   :session-key session-key}))
     (enable-embedding! base-url session-key)))
 
 (defn get-embedding-secret-key
   "retrive the embedding-secret-key"
   [e-conn]
   {:pre [(satisfies? embedkit/IConnection e-conn)]}
-  (get-metabase-setting-by-key! e-conn "embedding-secret-key"))
+  (get-metabase-setting! e-conn "embedding-secret-key"))
 
 (defn create-db!
   "Create the database in metabase if it does not exist"
