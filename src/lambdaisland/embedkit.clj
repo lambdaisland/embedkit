@@ -138,21 +138,25 @@
   (mb-get conn \"/api/cards/6\")
   (mb-get conn [:cards 6])"
   [conn path & [opts]]
+  {:pre [(or (nil? opts) (contains? opts :query-params))]}
   (do-request (request conn :get path opts)))
 
 (defn mb-post
   "Perform a POST request to the Metabase API"
   [conn path & [opts]]
+  {:pre [(contains? opts :form-params)]}
   (do-request (request conn :post path opts)))
 
 (defn mb-put
   "Perform a PUT request to the Metabase API"
   [conn path & [opts]]
+  {:pre [(contains? opts :form-params)]}
   (do-request (request conn :put path opts)))
 
 (defn mb-delete
   "Perform a DELETE request to the Metabase API"
   [conn path & [opts]]
+  {:pre [(or (nil? opts) (contains? opts :query-params))]}
   (do-request (request conn :delete path opts)))
 
 (defn embed-payload-url
