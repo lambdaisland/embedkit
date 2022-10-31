@@ -80,13 +80,13 @@
 (defn get-embedding-secret-key
   "retrive the embedding-secret-key"
   [e-conn]
-  {:pre [(record? e-conn)]}
+  {:pre [(satisfies? embedkit/IConnection e-conn)]}
   (get-metabase-setting-by-key! e-conn "embedding-secret-key"))
 
 (defn create-db!
   "Create the database in metabase if it does not exist"
   [e-conn db-conn-name engine details]
-  {:pre [(record? e-conn) (string? db-conn-name) (string? engine) (map? details)]}
+  {:pre [(satisfies? embedkit/IConnection e-conn) (string? db-conn-name) (string? engine) (map? details)]}
   (if (nil? (embedkit/find-database e-conn db-conn-name))
     (embedkit/mb-post
      e-conn
