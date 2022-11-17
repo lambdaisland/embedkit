@@ -4,7 +4,7 @@
             [lambdaisland.embedkit.setup :as setup]))
 
 (def config {:user "admin@example.com"
-             :password "secret1"})
+             :password "aqd4ijj4"})
 
 ;; create admin user and enable embedded
 (setup/init-metabase! config)
