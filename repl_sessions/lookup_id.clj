@@ -14,6 +14,10 @@ conn
 (e/table-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted")
 (e/field-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted" "document_date")
 
+(get-in
+ @(:cache conn)
+ [:databases "example_tenant" :schemas "enzo" :tables  "Denormalised General Ledger entries - Draft and Posted"])
+
 (e/fetch-all-users conn)
 (e/user-id conn "admin@example.com")
 
