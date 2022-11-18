@@ -222,19 +222,45 @@
                             (:body (mb-get conn [:database])))))
           (get-in @(:cache conn) path)))))
 
-
 (defn fetch-database-fields
   "Get all tables/fields for a given db-id. Always does a request."
   [client db-id]
   (let [tables (-> client
                    (mb-get [:database db-id]
                            {:query-params {:include "tables.fields"}})
-                   (get-in [:body :tables]))]
-    (mapcat (fn [{:keys [schema name fields]}]
-              (map (fn [{:keys [id] field-name :name}]
-                     [schema name field-name id])
-                   fields))
-            tables)))
+                   (get-in [:body :tables]))
+        f-index (mapcat (fn [{:keys [schema name fields]}]
+                          (map (fn [{:keys [id] field-name :name}]
+                                 [schema name field-name id])
+                               fields))
+                        tables)
+        t-index (map (fn [{:keys [schema name id]}]
+                       [schema name id]) tables)]
+    {:f-index f-index
+     :t-index t-index}))
+
+(defn table-id
+  "Find the numeric id of a given table in a database/schema. Leverages the
+  cache."
+  [conn db-name schema table]
+  (let [path [:databases db-name
+              :schemas schema
+              :tables table
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [db-id (:id (find-database conn db-name))
+            tables (:t-index (fetch-database-fields conn db-id))]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c [s t id]]
+                           (assoc-in c
+                                     [:databases db-name
+                                      :schemas s
+                                      :tables t
+                                      :id] id))
+                         cache tables)))
+        (get-in @(:cache conn) path)))))
 
 (defn field-id
   "Find the numeric id of a given field in a database/schema/table. Leverages the
@@ -248,7 +274,7 @@
     (if-let [id (get-in @(:cache conn) path)]
       id
       (let [db-id (:id (find-database conn db-name))
-            fields (fetch-database-fields conn db-id)]
+            fields (:f-index (fetch-database-fields conn db-id))]
         (swap! (:cache conn)
                (fn [cache]
                  (reduce (fn [c [s t f id]]
@@ -260,6 +286,68 @@
                                       :id] id))
                          cache fields)))
         (get-in @(:cache conn) path)))))
+
+(defn fetch-all-users
+  "Get users. Always does a request."
+  [client]
+  (let [user-list (-> client
+                      (mb-get [:user]
+                              {:query-params {:include_deactivated "true"}})
+                      (get-in [:body]))]
+    user-list))
+
+(defn user-id
+  "Find the numeric id of a given user email Leverages the cache."
+  [conn email]
+  (let [path [:user-email email
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [users (fetch-all-users conn)]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c {:keys [email id]}]
+                           (assoc-in c
+                                     [:user-email email
+                                      :id] id))
+                         cache users)))
+        (get-in @(:cache conn) path)))))
+
+(defn fetch-all-groups
+  "Get groups. Always does a request."
+  [client]
+  (let [group (-> client
+                  (mb-get [:permissions :group])
+                  (get-in [:body]))]
+    group))
+
+(defn group-id
+  "Find the numeric id of a given group name. Leverages the cache."
+  [conn name]
+  (let [path [:group-name name
+              :id]]
+    (if-let [id (get-in @(:cache conn) path)]
+      id
+      (let [groups (fetch-all-groups conn)]
+        (swap! (:cache conn)
+               (fn [cache]
+                 (reduce (fn [c {:keys [name id]}]
+                           (assoc-in c
+                                     [:group-name name
+                                      :id] id))
+                         cache groups)))
+        (get-in @(:cache conn) path)))))
+
+(defn trigger-db-fn!
+  "When success, return ... "
+  [conn db-name db-fn-link]
+  {:pre [(or (#{"sync_schema" "rescan_values"} db-fn-link)
+             (#{:sync_schema :rescan_values} db-fn-link))]}
+  (let [db-id (:id (find-database conn db-name))
+        resp (-> conn
+                 (mb-post [:database db-id (keyword db-fn-link)])
+                 (get-in [:body]))]
+    resp))
 
 (def embedkit-keys
   "Keys that we add interally to entity maps. Generally we deal with data exactly

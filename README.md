@@ -275,6 +275,26 @@ See the example file from `repl_sessions/create_db_conn.clj`
 (setup/create-db! conn db-conn-name engine details)
 ```
 
+#### Trigger the sync of a db schema and field values
+
+```
+(e/trigger-db-fn! conn "example_tenant" :sync_schema)
+(e/trigger-db-fn! conn "example_tenant" :rescan_values)
+```
+
+### ID lookup utilities 
+For human, it is natural to remember the name of an entity, be it a database, 
+database schema, or a table. On the other hand, inside metabase, these entities are 
+all represented by numeric IDs.
+That is why we also provide a series of ID lookup utilities:
+```
+(find-database ...)  ;; get the database entity information which include db-id through database-name
+(table-id ...)       ;; find out field-id by database-name, schema-name, table-name
+(field-id ...)       ;; find out field-id by database-name, schema-name, table-name, field-name
+(user-id ...)        ;; find out user-id by email
+(group-id ...)       ;; find out group-id by group-name
+```
+
 <!-- contributing -->
 ## Contributing
 
