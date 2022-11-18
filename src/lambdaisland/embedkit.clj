@@ -219,7 +219,7 @@
                  :databases
                  (fnil into {})
                  (doto (map (juxt :name identity)
-                            (:body (mb-get conn [:database])))))
+                            (get-in (mb-get conn [:database]) [:body :data]))))
           (get-in @(:cache conn) path)))))
 
 (defn fetch-database-fields
