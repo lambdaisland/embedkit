@@ -293,7 +293,7 @@
   (let [user-list (-> client
                       (mb-get [:user]
                               {:query-params {:include_deactivated "true"}})
-                      (get-in [:body]))]
+                      (get-in [:body :data]))]
     user-list))
 
 (defn user-id

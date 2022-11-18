@@ -1,12 +1,11 @@
-(ns lookup-id 
+(ns lookup-id
   (:require [clojure.pprint :as pprint]
             [clojure.string :as str]
             [lambdaisland.embedkit :as e]))
 
-(def conn (e/connect {:user "admin@example.com"
-                      :password "secret1"
-                      ;; http://localhost:3000/admin/settings/embedding_in_other_applications
-                      :secret-key "6fa6b6600d27ff276d3d0e961b661fb3b082f8b60781e07d11b8325a6e1025c5"}))
+(def conn
+  (e/connect (read-string (slurp "dev/config.edn"))))
+
 conn
 
 (def db (e/find-database conn "example_tenant"))
@@ -16,7 +15,7 @@ conn
 (e/field-id conn "example_tenant" "enzo" "Denormalised General Ledger entries - Draft and Posted" "document_date")
 
 (e/fetch-all-users conn)
-(e/user-id conn "aaa@example.com")
+(e/user-id conn "admin@example.com")
 
 (e/fetch-all-groups conn)
 (e/group-id conn "Administrators")
