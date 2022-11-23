@@ -202,6 +202,41 @@
          res#)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Pagination
+
+(def default-pagination-size 200)
+
+(defn wrap-paginate
+  "Decorator of the normal `mb-get` function
+   This decorator will create a new version of `mb-get` which will collect all
+    the results of each page and return the concatenated list of `[:body :data]`
+
+   Note: `error-logger` can be nil"
+  ([f page-size]
+   (wrap-paginate f page-size nil))
+  ([f page-size error-logger]
+   {:pre [(pos-int? page-size)]}
+   (fn paginate
+     ([conn path]
+      (paginate conn path {:query-params {}}))
+     ([conn path opts]
+      (let [limit page-size
+            opts* (update opts
+                          :query-params #(conj % [:limit limit] [:offset 0]))
+            resp* (f conn path opts*)
+            total (get-in resp* [:body :total])
+            lazy-f (fn lazy-f [{:keys [status] :as resp} offset]
+                     (if (= status 200)
+                       (lazy-cat
+                        (get-in resp [:body :data])
+                        (when (<= (* (inc offset) limit) total)
+                          (lazy-f
+                           (f conn path (assoc-in opts* [:query-params :offset] offset)) (inc offset))))
+                       (when error-logger
+                         (error-logger resp))))]
+        (lazy-f resp* 1))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Database operations
 
 (defn find-database
@@ -232,8 +267,8 @@
         field-index (mapcat (fn [{:keys [schema name fields]}]
                               (map (fn [{:keys [id] field-name :name}]
                                      [schema name field-name id])
-                                fields))
-                        tables)
+                                   fields))
+                            tables)
         table-index (map (juxt :schema :name identity) tables)]
     {:field-index field-index
      :table-index table-index}))
@@ -289,10 +324,10 @@
 (defn fetch-all-users
   "Get users. Always does a request."
   [client]
-  (let [user-list (-> client
-                      (mb-get [:user]
-                              {:query-params {:include_deactivated "true"}})
-                      (get-in [:body :data]))]
+  (let [f (wrap-paginate mb-get default-pagination-size)
+        user-list (-> client
+                      (f [:user]
+                         {:query-params {:include_deactivated "true"}}))]
     user-list))
 
 (defn user-id
