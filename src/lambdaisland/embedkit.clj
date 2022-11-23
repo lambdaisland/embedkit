@@ -321,13 +321,19 @@
                          cache fields)))
         (get-in @(:cache conn) path)))))
 
-(defn fetch-all-users
-  "Get users. Always does a request."
-  [client]
-  (let [f (wrap-paginate mb-get default-pagination-size)
+(defn fetch-users
+  "Get users:
+
+   When option is :all, then get all the users. Useful for getting all the users.
+   When option is :active, then get only the active users."
+  [client option]
+  (let [query-opts (case option
+                     :all {:include_deactivated "true"}
+                     :active {})
+        f (wrap-paginate mb-get default-pagination-size)
         user-list (-> client
                       (f [:user]
-                         {:query-params {:include_deactivated "true"}}))]
+                         {:query-params query-opts}))]
     user-list))
 
 (defn user-id
@@ -337,7 +343,7 @@
               :id]]
     (if-let [id (get-in @(:cache conn) path)]
       id
-      (let [users (fetch-all-users conn)]
+      (let [users (fetch-users conn :all)]
         (swap! (:cache conn)
                (fn [cache]
                  (reduce (fn [c {:keys [email id]}]

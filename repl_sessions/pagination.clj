@@ -4,7 +4,8 @@
 (def conn
   (e/connect (read-string (slurp "dev/config.edn"))))
 
-(e/fetch-all-users conn)
+(e/fetch-users conn :all)
+(e/fetch-users conn :active)
 
 (e/find-database conn "example_tenant")
 
