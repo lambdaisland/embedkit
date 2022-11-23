@@ -295,8 +295,13 @@ That is why we also provide a series of ID lookup utilities:
 (group-id ...)       ;; find out group-id by group-name
 ```
 
-### Pagination Issues
-The newest release version of embedkit is developed toward metabase version `0.44.6`.
+### Metabase version & related issues
+
+#### Supported Metabase version
+0.44.0 or later
+
+#### Pagination
+The newest release version of embedkit is developed along with metabase version `0.44.6`.
 According to [here](https://github.com/metabase/metabase/wiki/What%27s-new-in-0.40.0-for-Metabase-REST-API-clients), metabase should have `/api/user` and `/api/database` supporting pagination feature. However, real world testing shows that only `/api/user` has the pagination feature. Also, the `total` in the return result of `/api/user` is actually refering to the total number of users rather than the total number of users with respect to the query.
 
 <!-- contributing -->
