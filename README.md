@@ -282,7 +282,7 @@ See the example file from `repl_sessions/create_db_conn.clj`
 (e/trigger-db-fn! conn "example_tenant" :rescan_values)
 ```
 
-### ID lookup utilities 
+#### ID lookup utilities
 For human, it is natural to remember the name of an entity, be it a database, 
 database schema, or a table. On the other hand, inside metabase, these entities are 
 all represented by numeric IDs.
@@ -294,6 +294,15 @@ That is why we also provide a series of ID lookup utilities:
 (user-id ...)        ;; find out user-id by email
 (group-id ...)       ;; find out group-id by group-name
 ```
+
+### Metabase version & related issues
+
+#### Supported Metabase version
+0.44.0 or later
+
+#### Pagination
+The newest release version of embedkit is developed along with metabase version `0.44.6`.
+According to [here](https://github.com/metabase/metabase/wiki/What%27s-new-in-0.40.0-for-Metabase-REST-API-clients), metabase should have `/api/user` and `/api/database` supporting pagination feature. However, real world testing shows that only `/api/user` has the pagination feature. Also, the `total` in the return result of `/api/user` is actually refering to the total number of users rather than the total number of users with respect to the query.
 
 <!-- contributing -->
 ## Contributing
