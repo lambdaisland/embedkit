@@ -18,6 +18,7 @@ conn
  @(:cache conn)
  [:databases "example_tenant" :schemas "enzo" :tables  "Denormalised General Ledger entries - Draft and Posted"])
 
+(e/fetch-all-users conn)
 (e/fetch-users conn :all)
 (e/user-id conn "admin@example.com")
 

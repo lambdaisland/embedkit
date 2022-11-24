@@ -321,6 +321,16 @@
                          cache fields)))
         (get-in @(:cache conn) path)))))
 
+(defn fetch-all-users
+  "Get users. Always does a request."
+  [client]
+  (let [query-opts {:include_deactivated "true"}
+        f (wrap-paginate mb-get default-pagination-size)
+        user-list (-> client
+                      (f [:user]
+                         {:query-params query-opts}))]
+    (vec user-list)))
+
 (defn fetch-users
   "Get users:
 

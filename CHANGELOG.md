@@ -2,11 +2,12 @@
 
 ## Added
 
+- Add fetch-users API
+
 ## Fixed
 
 ## Changed
 
-- [breaking] Change `embedkit/fetch-all-users` to `embedkit/fetch-users`
 - [breaking] Support only metabase version >= `0.40.0`
 - Support the pagination feature of `/api/user` [Ref](https://github.com/metabase/metabase/wiki/What%27s-new-in-0.40.0-for-Metabase-REST-API-clients)
 
