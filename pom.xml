@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.lambdaisland</groupId>
   <artifactId>embedkit</artifactId>
-  <version>0.0.24</version>
+  <version>0.0.45</version>
   <name>embedkit</name>
   <description>Use Metabase as a dashboard engine</description>
   <url>https://github.com/lambdaisland/embedkit</url>
@@ -22,7 +22,7 @@
     <url>https://github.com/lambdaisland/embedkit</url>
     <connection>scm:git:git://github.com/lambdaisland/embedkit.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/lambdaisland/embedkit.git</developerConnection>
-    <tag>5170116e7cca4b2258d403c836f15ca61e6f5d7b</tag>
+    <tag>4b97a75e5987aee458466b3fe23e1f5b41b9cc3b</tag>
   </scm>
   <dependencies>
     <dependency>
@@ -84,7 +84,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <git-revision>5170116e7cca4b2258d403c836f15ca61e6f5d7b</git-revision>
+              <git-revision>4b97a75e5987aee458466b3fe23e1f5b41b9cc3b</git-revision>
             </manifestEntries>
           </archive>
         </configuration>
