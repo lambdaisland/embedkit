@@ -9,11 +9,10 @@
 ;; Start embedkit connection, this will grab a token from Metabase and hold it
 ;; for later requests. It also instantiates a Hato (Java 11 HttpClient wrapper)
 ;; instance, and keeps a cache for certain requests.
-(def conn (e/connect {:user "admin@example.com"
-                      :password "secret1"
-                      :secret-key "edd85e0d585cecaa9e77d203993566b13bda4c962281e3fa8e4877374a7addd7"
-                      #_#_:middleware (conj hato.middleware/default-middleware
-                                            r/print-request-mw)}))
+(def conn (e/connect (merge 
+                       (read-string (slurp "dev/config.edn"))
+                       {#_#_:middleware (conj hato.middleware/default-middleware
+                                            r/print-request-mw)})))
 
 (e/populate-cache conn)
 

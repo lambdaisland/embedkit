@@ -6,10 +6,7 @@
             [lambdaisland.embedkit.repl :as r]
             [lambdaisland.embedkit.watch :as w :refer [watch! unwatch!]]))
 
-(def conn (e/connect {:user "admin@example.com"
-                      :password "secret1"
-                      ;; http://localhost:3000/admin/settings/embedding_in_other_applications
-                      :secret-key "edd85e0d585cecaa9e77d203993566b13bda4c962281e3fa8e4877374a7addd7"}))
+(def conn (e/connect (read-string (slurp "dev/config.edn"))))
 
 conn
 

@@ -3,8 +3,9 @@
             [lambdaisland.embedkit.repl :as r]
             [lambdaisland.embedkit.setup :as setup]))
 
-(def config {:user "admin@example.com"
-             :password "aqd4ijj4"})
+(def config 
+  (select-keys (read-string (slurp "dev/config.edn")) 
+               [:user :password]))
 
 ;; create admin user and enable embedded
 (setup/init-metabase! config)
