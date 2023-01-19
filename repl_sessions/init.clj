@@ -3,11 +3,20 @@
             [lambdaisland.embedkit.repl :as r]
             [lambdaisland.embedkit.setup :as setup]))
 
-(def config 
-  (select-keys (read-string (slurp "dev/config.edn")) 
+(def config
+  (select-keys (read-string (slurp "dev/config.edn"))
                [:user :password]))
+(comment
+  ;; first-name, last-name, site-name are optional parameters
+  (def config
+    (select-keys (read-string (slurp "dev/config.edn"))
+                 [:user :password
+                  :first-name :last-name
+                  :site-name])))
 
 ;; create admin user and enable embedded
+
+
 (setup/init-metabase! config)
 
 ;; setup embedding secret key

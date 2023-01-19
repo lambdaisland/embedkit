@@ -22,12 +22,13 @@
 
 (defn create-admin-user!
   "Create the first/admin user of the metabase, and get the session-key"
-  [base-url setup-token user password]
+  [{:keys [base-url setup-token email password
+           first-name last-name site-name]}]
   (let [setup-url (str base-url "/api/setup")
         data {:token setup-token
-              :user {:email user :password password
-                     :first_name "lambdaisland.com" :last_name "gaiwan.co"}
-              :prefs {:site_name "Metabase BI"}}
+              :user {:email email :password password
+                     :first_name first-name :last_name last-name}
+              :prefs {:site_name site-name}}
         {:keys [status body]} (http/request {:method :post
                                              :url setup-url
                                              :content-type :json
@@ -74,13 +75,23 @@
    2. enable embedding"
   [{:keys [user password
            ;; optional
+           first-name last-name site-name
            https? host port]
-    :or {https? false
+    :or {first-name "lambdaisland.com"
+         last-name "gaiwan.co"
+         site-name "Metabase BI"
+         https? false
          host "localhost"
          port 3000}}]
   (let [base-url (metabase-endpoint https? host port)
         setup-token (get-metabase-setup-token! base-url)
-        session-key (create-admin-user! base-url setup-token user password)]
+        session-key (create-admin-user! {:base-url base-url
+                                         :setup-token setup-token
+                                         :email user
+                                         :password password
+                                         :first-name first-name
+                                         :last-name last-name
+                                         :site-name site-name})]
     (comment (prn {:base-url base-url
                    :setup-token setup-token
                    :session-key session-key}))

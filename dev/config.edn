@@ -1,3 +1,6 @@
 {:user "admin@example.com"
  :password "aqd4ijj4"
- :secret-key "6fa6b6600d27ff276d3d0e961b661fb3b082f8b60781e07d11b8325a6e1025c5"}
+ :secret-key "6fa6b6600d27ff276d3d0e961b661fb3b082f8b60781e07d11b8325a6e1025c5"
+ :first-name "Laurence" 
+ :last-name "Chen" 
+ :site-name "My site"}
