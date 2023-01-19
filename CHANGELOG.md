@@ -10,6 +10,8 @@
 
 ## Added
 
+- Let (setup/init-metabase! config) support first-name, last-name, site-name.
+
 ## Fixed
 
 ## Changed
