@@ -7,7 +7,7 @@
   hato/hato             {:mvn/version "0.8.1"}
   honeysql/honeysql     {:mvn/version "1.0.461"}
   io.replikativ/hasch   {:mvn/version "0.3.7"}
-  lambdaisland/uri      {:mvn/version "1.4.54"}}
+  lambdaisland/uri      {:mvn/version "1.14.120"}}
 
  :aliases
  {:dev
