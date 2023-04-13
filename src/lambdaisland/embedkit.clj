@@ -615,8 +615,8 @@
              ::dashboard-id (or dashboard-id (:id dashboard))
              ::card card
              :cardId card-id
-             :sizeX width
-             :sizeY height
+             :size_x width
+             :size_y height
              :parameter_mappings (for [[var-name {:keys [id]}] (::variables card)]
                                    {:parameter_id id
                                     :target ["variable" ["template-tag" id]]

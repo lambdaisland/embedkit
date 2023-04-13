@@ -6,6 +6,9 @@
 
 ## Changed
 
+- [breaking] Support only metabase version >= `0.46.1`
+- Change the API call parameters on `/api/dashboard/:id/cards` 
+
 # 0.0.50 (2023-01-19 / 8e058ff)
 
 ## Added
