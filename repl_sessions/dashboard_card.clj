@@ -20,8 +20,12 @@ conn
 
 ;; create card
 (def card (e/native-card {:name "order card"
+                          :variables {:start_date {:editable? true
+                                                   :type "date"}
+                                      :end_date {:editable? true
+                                                 :type "date"}}
                           :database (:id db)
-                          :sql "SELECT * FROM orders"}))
+                          :sql "SELECT * FROM orders [[WHERE created_at BETWEEN {{start_date}} AND {{end_date}}]]"}))
 card
 (r/browse! (e/find-or-create! conn card))
 
