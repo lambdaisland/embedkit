@@ -39,13 +39,13 @@ Initial development of EmbedKit is generously sponsored by [Eleven](https://rune
 deps.edn
 
 ```
-lambdaisland/embedkit {:mvn/version "0.0.0"}
+lambdaisland/embedkit {:mvn/version "0.0.56"}
 ```
 
 project.clj
 
 ```
-[lambdaisland/embedkit "0.0.0"]
+[lambdaisland/embedkit "0.0.56"]
 ```
 <!-- /installation -->
 
