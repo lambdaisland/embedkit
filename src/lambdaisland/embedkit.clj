@@ -69,7 +69,9 @@
 
 (defprotocol IConnection
   (path-url [_ p])
-  (request [_ method url opts]))
+  (request [_ method url opts])
+  (conn-cache [_])
+  (secret-key [_]))
 
 (defrecord Connection [client endpoint token cache secret-key middleware]
   IConnection
@@ -86,7 +88,22 @@
          :content-type :json
          :as :json}
         (cond-> middleware (assoc :middleware middleware))
-        (into opts))))
+        (into opts)))
+  (conn-cache [this]
+    (:cache this))
+  (secret-key [this]
+    (:secret-key this)))
+
+(extend-protocol IConnection
+  clojure.lang.IAtom
+  (path-url [this p]
+    (path-url @this p))
+  (request [this method path opts]
+    (request @this method path opts))
+  (conn-cache [this]
+    (conn-cache @this))
+  (secret-key [this]
+    (secret-key @this)))
 
 (defn connect
   "Create a connection to the Metabase API. This does an authentication call to
@@ -105,7 +122,8 @@
     :or {connect-timeout 10000
          https? false
          host "localhost"
-         port 3000}}]
+         port 3000}
+    :as conn-opts}]
   (when-not secret-key
     (binding [*out* *err*]
       (println "WARNING: no :secret-key provided to" `connect ", generating embed urls will be disabled.")))
@@ -120,17 +138,39 @@
                                                     "password" password}
                                       :content-type :json
                                       :as :json})))]
-    (map->Connection {:client client
-                      :endpoint endpoint
-                      :token token
-                      :cache (atom {})
-                      :secret-key secret-key
-                      :middleware middleware})))
+    (map->Connection (assoc
+                       conn-opts
+                       :client client
+                       :endpoint endpoint
+                       :token token
+                       :cache (atom {})
+                       :secret-key secret-key
+                       :middleware middleware))))
 
 (defn- do-request [req]
   (vary-meta (http/request req)
              assoc
              ::request req))
+
+(defmacro with-refresh-auth [conn & body]
+  `((fn retry# [conn# retries#]
+      (Thread/sleep (* 1000 retries# retries#)) ; backoff
+      (try
+        ~@body
+        (catch clojure.lang.ExceptionInfo e#
+          (if (and (= 401 (:status (ex-data e#)))
+                   (atom? conn#)
+                   (< 4 retries#))
+            (do
+              (reset! conn# (connect @conn#))
+              (retry# conn# (inc retries#)))
+            (throw e#)))))
+    ~conn
+    0))
+
+(defn mb-request [verb conn path opts]
+  (with-refresh-auth conn
+    (do-request (request conn verb path opts))))
 
 (defn mb-get
   "Perform a GET request to the Metabase API. Path can be a string or a vector.
@@ -138,22 +178,22 @@
   (mb-get conn \"/api/cards/6\")
   (mb-get conn [:cards 6])"
   [conn path & [opts]]
-  (do-request (request conn :get path opts)))
+  (mb-request :get conn path opts))
 
 (defn mb-post
   "Perform a POST request to the Metabase API"
   [conn path & [opts]]
-  (do-request (request conn :post path opts)))
+  (mb-request :post conn path opts))
 
 (defn mb-put
   "Perform a PUT request to the Metabase API"
   [conn path & [opts]]
-  (do-request (request conn :put path opts)))
+  (mb-request :put conn path opts))
 
 (defn mb-delete
   "Perform a DELETE request to the Metabase API"
   [conn path & [opts]]
-  (do-request (request conn :delete path opts)))
+  (mb-request :delete conn path opts))
 
 (defn embed-payload-url
   "Sign the payload with the `:secret-key` from the connection, and use it to
@@ -163,7 +203,7 @@
                       titled? false
                       filters {}}
                  :as opts}]
-  (when-let [key (:secret-key conn)]
+  (when-let [key (secret-key conn)]
     (let [token (jwt/sign payload key)]
       (-> (uri/uri (path-url conn [:embed :dashboard token]))
           (assoc :fragment (uri/map->query-string
@@ -196,9 +236,9 @@
   (first (honey/format sql :parameterizer :none)))
 
 (defmacro with-cache [conn path & body]
-  `(or (get-in @(:cache ~conn) ~path)
+  `(or (get-in @(conn-cache ~conn) ~path)
        (let [res# (do ~@body)]
-         (swap! (:cache ~conn) assoc-in ~path res#)
+         (swap! (conn-cache ~conn) assoc-in ~path res#)
          res#)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -247,15 +287,15 @@
   Mainly used for finding the numeric id of the given Database."
   [conn db-name]
   (let [path [:databases db-name]]
-    (or (get-in @(:cache conn) path)
+    (or (get-in @(conn-cache conn) path)
         (do
-          (swap! (:cache conn)
+          (swap! (conn-cache conn)
                  update
                  :databases
                  (fnil into {})
                  (doto (map (juxt :name identity)
                             (get-in (mb-get conn [:database]) [:body :data]))))
-          (get-in @(:cache conn) path)))))
+          (get-in @(conn-cache conn) path)))))
 
 (defn fetch-database-fields
   "Get all tables/fields for a given db-id. Always does a request."
@@ -281,11 +321,11 @@
               :schemas schema
               :tables table
               :id]]
-    (if-let [id (get-in @(:cache conn) path)]
+    (if-let [id (get-in @(conn-cache conn) path)]
       id
       (let [db-id (:id (find-database conn db-name))
             tables (:table-index (fetch-database-fields conn db-id))]
-        (swap! (:cache conn)
+        (swap! (conn-cache conn)
                (fn [cache]
                  (reduce (fn [c [schema-name table-name table-entity]]
                            (assoc-in c
@@ -294,7 +334,7 @@
                                       :tables table-name
                                       :id] (:id table-entity)))
                          cache tables)))
-        (get-in @(:cache conn) path)))))
+        (get-in @(conn-cache conn) path)))))
 
 (defn field-id
   "Find the numeric id of a given field in a database/schema/table. Leverages the
@@ -305,11 +345,11 @@
               :tables table
               :fields field
               :id]]
-    (if-let [id (get-in @(:cache conn) path)]
+    (if-let [id (get-in @(conn-cache conn) path)]
       id
       (let [db-id (:id (find-database conn db-name))
             fields (:field-index (fetch-database-fields conn db-id))]
-        (swap! (:cache conn)
+        (swap! (conn-cache conn)
                (fn [cache]
                  (reduce (fn [c [s t f id]]
                            (assoc-in c
@@ -319,7 +359,7 @@
                                       :fields f
                                       :id] id))
                          cache fields)))
-        (get-in @(:cache conn) path)))))
+        (get-in @(conn-cache conn) path)))))
 
 (defn fetch-all-users
   "Get users. Always does a request."
@@ -351,17 +391,17 @@
   [conn email]
   (let [path [:user-email email
               :id]]
-    (if-let [id (get-in @(:cache conn) path)]
+    (if-let [id (get-in @(conn-cache conn) path)]
       id
       (let [users (fetch-users conn :all)]
-        (swap! (:cache conn)
+        (swap! (conn-cache conn)
                (fn [cache]
                  (reduce (fn [c {:keys [email id]}]
                            (assoc-in c
                                      [:user-email email
                                       :id] id))
                          cache users)))
-        (get-in @(:cache conn) path)))))
+        (get-in @(conn-cache conn) path)))))
 
 (defn fetch-all-groups
   "Get groups. Always does a request."
@@ -376,17 +416,17 @@
   [conn name]
   (let [path [:group-name name
               :id]]
-    (if-let [id (get-in @(:cache conn) path)]
+    (if-let [id (get-in @(conn-cache conn) path)]
       id
       (let [groups (fetch-all-groups conn)]
-        (swap! (:cache conn)
+        (swap! (conn-cache conn)
                (fn [cache]
                  (reduce (fn [c {:keys [name id]}]
                            (assoc-in c
                                      [:group-name name
                                       :id] id))
                          cache groups)))
-        (get-in @(:cache conn) path)))))
+        (get-in @(conn-cache conn) path)))))
 
 (defn trigger-db-fn!
   "When success, return ... "
@@ -468,11 +508,11 @@
   [conn]
   (doseq [card (:body (mb-get conn [:card]))]
     (when-let [hash (get-in card [:visualization_settings :embedkit.hash])]
-      (swap! (:cache conn) assoc-in [:by-hash hash] (assoc card ::type :card))))
+      (swap! (conn-cache conn) assoc-in [:by-hash hash] (assoc card ::type :card))))
 
   (doseq [db (:body (mb-get conn [:dashboard]))]
     (when-let [hash (:description db)]
-      (swap! (:cache conn) assoc-in [:by-hash hash] (assoc db ::type :dashboard)))))
+      (swap! (conn-cache conn) assoc-in [:by-hash hash] (assoc db ::type :dashboard)))))
 
 (defn- find-or-create-one!
   [conn entity]
