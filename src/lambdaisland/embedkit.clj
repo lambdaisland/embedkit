@@ -95,7 +95,7 @@
     (:secret-key this)))
 
 (extend-protocol IConnection
-  clojure.lang.IAtom
+  clojure.lang.Atom
   (path-url [this p]
     (path-url @this p))
   (request [this method path opts]
@@ -159,7 +159,7 @@
         ~@body
         (catch clojure.lang.ExceptionInfo e#
           (if (and (= 401 (:status (ex-data e#)))
-                   (atom? conn#)
+                   (instance? clojure.lang.Atom conn#)
                    (< 4 retries#))
             (do
               (reset! conn# (connect @conn#))
