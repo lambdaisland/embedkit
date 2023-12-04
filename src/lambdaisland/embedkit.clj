@@ -160,7 +160,7 @@
         (catch clojure.lang.ExceptionInfo e#
           (if (and (= 401 (:status (ex-data e#)))
                    (instance? clojure.lang.Atom conn#)
-                   (< 4 retries#))
+                   (< retries# 4))
             (do
               (reset! conn# (connect @conn#))
               (retry# conn# (inc retries#)))
