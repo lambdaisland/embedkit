@@ -1,10 +1,14 @@
 # Unreleased
 
 ## Added
+- Extend the Connection protocol to clojure.lang.Atom, so that we can have 
+  connection in immutable object or mutable object. With connection object 
+  mutable, we can refresh it when the token expires.
 
 ## Fixed
 
 ## Changed
+
 
 # 0.0.56 (2023-04-14 / fd0bc4a)
 
