@@ -1,4 +1,4 @@
-# Unreleased
+# 0.0.66 (2023-12-05 / 9ce088a)
 
 ## Added
 - Extend the Connection protocol to clojure.lang.Atom, so that we can have 
