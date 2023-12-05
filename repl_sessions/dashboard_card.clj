@@ -7,9 +7,11 @@
    [lambdaisland.embedkit.repl :as r]
    [lambdaisland.embedkit.watch :as w :refer [watch! unwatch!]]))
 
-;; create connection
-(def conn (e/connect (read-string (slurp "dev/config.edn"))))
-conn
+;; create atom connection
+(def conn (atom nil))
+(reset! conn (e/connect (read-string (slurp "dev/config.edn"))))
+
+(prn "Is conn an Atom" (instance? clojure.lang.Atom conn))
 
 ;; find database by name
 (def db (e/find-database conn "Sample Database"))
@@ -44,3 +46,27 @@ card
                                                           :x 5 :y 0
                                                           :width 5 :height 5}]}))]
   (browse-url (str (e/embed-url conn dash))))
+
+(comment
+ (let [card1 (e/native-card {:name "order card"
+                            :database (:id db)
+                            :sql "SELECT id FROM orders"})
+      card2 (e/native-card {:name "invoice card"
+                            :database (:id db)
+                            :sql "SELECT id FROM invoices"})
+      ]
+   (try
+     (e/find-or-create! conn (e/dashboard {:name "Sample DB 3 dashboard"
+                                                 :cards [{:card card1
+                                                          :x 0 :y 0
+                                                          :width 5 :height 5}
+                                                         {:card card2
+                                                          :x 5 :y 0
+                                                          :width 5 :height 5}]}))
+     (catch Exception e
+       (prn e)
+       (prn (ex-data e)))
+       )
+     )
+  (browse-url (str (e/embed-url conn dash)))))
+
